@@ -1,0 +1,107 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Bitpad";
+}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/core.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/md5.js"></script>
+
+    <div class="text-center" style="margin-top: max(65px, 10%);">
+        <div class="login-title">Bytepad</div>
+
+        <div class="row login-box" style="height:240px">
+            <div class="preloader-wrapper big active" id="load-spinner" style="display: none; margin: auto;">
+                <div class="spinner-layer spinner-blue-only">
+                    <div class="circle-clipper left">
+                        <div class="circle"></div>
+                    </div><div class="gap-patch">
+                        <div class="circle"></div>
+                    </div><div class="circle-clipper right">
+                        <div class="circle"></div>
+                    </div>
+                </div>
+            </div>
+            <form class="col s12" id="login-details">
+                <div id="login_reject" class="row" style="font-size: 13px; color: #ff8080; margin-bottom: 0px; display: block;">
+
+                </div>
+                <div class="row" style="margin-bottom: 0px; margin-right: 0px;">
+                    <div class="input-field col s6">
+                        <input id="login_username" type="text" class="validate login-input" autocomplete="off" placeholder="Username">
+                    </div>
+                </div>
+                <div class="row" style="margin-right: 0px;">
+                    <div class="input-field col s12">
+                        <input id="login_password" type="password" class="validate login-input" placeholder="Password">
+                    </div>
+                </div>
+                <div class="row" style="display: inline; margin-top:30px;">
+                    <a class="login-button" onclick="try_login()">Login</a>
+                </div>
+            </form>
+
+        </div>
+        <div class="login-footer">
+            <span style="float: left;">Don't have an account? <a href="#">Create one</a></span>
+            <span style="float:right;"><a href="#">Forgotten password</a></span>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+
+        $(document).ready(check_cookie());
+
+        function check_cookie() {
+            var session = getCookie('session_id');
+
+
+            if (session != '') {
+
+                document.getElementById('login-details').style.display = "none";
+                document.getElementById('load-spinner').style.display = "block";
+
+                $.ajax({
+                    type: "GET",
+                    url: "api/login/checksession/" + session,
+                    contentType: "application/json",
+                }).done(function (res) {
+                    window.location.replace("/Profile");
+                });
+            }
+        }
+
+        function try_login() {
+
+            var username = document.getElementById("login_username").value;
+            var password_hash = CryptoJS.MD5(document.getElementById("login_password").value).toString();
+            var requestObj = { login_username: username, login_password: password_hash };
+
+            //Send request with username and password hash
+
+            
+            document.getElementById('login-details').style.display = "none";
+            document.getElementById('load-spinner').style.display = "block";
+
+            $.ajax({
+                type: "POST",
+                data: JSON.stringify(requestObj),
+                url: "api/login/trylogin",
+                contentType: "application/json",
+            }).done(function (res) {
+                console.log(res);
+
+                if (res != '') {
+                    //New session granted
+                    setCookie('session_id', res, 7);
+                    window.location.replace("/Profile");
+                }
+                else {
+                     document.getElementById('login-details').style.display = "block";
+                    document.getElementById('load-spinner').style.display = "none";
+                    document.getElementById('login_reject').innerHTML = 'Incorrect username or password.';
+                }
+            }
+            )
+        }
+
+    </script>

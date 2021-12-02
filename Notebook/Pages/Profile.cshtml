@@ -1,0 +1,635 @@
+﻿@page
+@model Notebook.Pages.ProfileModel
+@{
+    ViewData["Title"] = "Homepage";
+}
+
+<script type="text/javascript" src="js/homepage.js"></script>
+<script type="text/javascript" src="js/calendar.js"></script>
+<script type="text/javascript" src="js/editor.js"></script>
+<script type="text/javascript" src="js/inbox.js"></script>
+<script type="text/javascript">
+
+    var session;
+
+    var page_mode = 0;
+    var editor_id = -1;
+    var editor_mode = 1;
+    var homepageCache;
+
+    var quill;
+
+    $(document).ready(function () {
+        setInterval(refresh, 10000);
+        onload();
+        var el = document.querySelector('.tabs');
+        var instance = M.Tabs.init(el, {});
+
+        $('select').formSelect();
+
+        $('.tabs').tabs();
+        $("#type-select").keyup(function () {
+            alert("Handler for .keyup() called.");
+        });
+
+        $("#type-select").on('change', function () {
+            typeChanged(e('type-select').value);
+        });
+
+        quill = new Quill('#editor-container', {
+            modules: {
+                syntax: true,
+                toolbar: [
+                    [{ header: [1, 2, false] }],
+                    ['bold', 'italic', 'underline'],
+                    ['code-block'],
+                    [{ 'align': [] }],
+                ]
+            },
+            placeholder: 'Content...',
+            theme: 'snow'  // or 'bubble'
+        });
+    });
+
+    function hideEditor() {
+        onload();
+        returnEditor();
+    }
+
+    function editItem(id) {
+        var requestObj = { session_id: session, item_id: id };
+
+        $.ajax({
+            type: "POST",
+            url: "api/item/getitem",
+            contentType: "application/json/",
+            data: JSON.stringify(requestObj),
+            success: function (result) {
+
+                var res = result['data'];
+
+                if (!result['ok']) {
+                    warningDialog(result['error']);
+                    return;
+                }
+
+                console.log(res);
+                //Open editor
+                startEditor();
+                editor_id = id;
+
+                clearAll();
+
+                var categoryselect = "";
+
+                if(res['shared_item'] == 1) categoryselect += ' <option style="color: red" value="-1">Shared</option>';
+
+                res['collections'].forEach(function (element, index) {
+                    categoryselect += `<option value="${element['id']}">${element['name']}</option>`;
+                });
+
+                document.getElementById('category-select').innerHTML = categoryselect;
+
+                document.getElementById('editor-username').innerHTML = res['created_by'];
+                document.getElementById('editor-created').innerHTML = 'Created ' + res['created_on'];
+                $('#type-select').val(res['type']);
+                $('#type-select').formSelect();
+
+                if(res['collection_id'] != -1)
+                {
+                    $('#category-select').val(res['collection_id']);
+                    $('#category-select').formSelect();
+                }
+                else{
+                    $('#category-select').val(-1);
+                    $('#category-select').formSelect();
+                }
+                
+
+                $('#reccuring-select').val(res['recurrence_type']);
+                $('#reccuring-select').formSelect();
+
+                document.getElementById('editor-modified').innerHTML = 'Modified ' + res['modified_on'];
+                document.getElementById('editor-title').value = res['title'];
+                $('#reminder-type').val(res['remind_before_hrs']);
+                $('#reminder-type').formSelect();
+                //if ($('#remind-select').prop('checked') != res['remind']) {
+                //    $('#remind-select').click();
+                //}
+
+                if(res['locked_out'])
+                {
+                    editor_state.locked_out = true;
+                    e('editor-lock').style.display = 'block';
+                    e('lock-cover').style.display = 'block';
+                }
+
+                if(res['secondary_owner'] == 1)
+                {
+                    editor_state.not_owned = true;
+                }
+                else
+                {
+                    editor_state.not_owned = false;
+                }
+
+                document.getElementById('event-datetime').value = res['due_date'];
+
+                if (res['shared_users'] != null) {
+                    setSharesOpen(true);
+                    res['shared_users'].forEach(element => addEditorShares(element));
+                }
+                else
+                {
+                    setSharesOpen(false);
+                }
+
+                if (res['tags'] != null) {
+                    res['tags'].forEach(element => addEditorTags(element));
+                }
+
+                let stringToParse = res['content'];
+                quill.setContents(JSON.parse(stringToParse));
+
+                typeChanged(e('type-select').value);
+
+                M.updateTextFields();
+                editor_mode = 0;
+            },
+            error: function (xhr, status, error) {
+                if (status == '403') loginScreen();
+            }
+        });
+
+        console.log(id);
+    }
+
+    function onload() {
+        session = getCookie("session_id");
+
+        if (session != '') {
+            getHomepage();
+            getCalendarDefault();
+            getInbox();
+        }
+        else {
+            //No session
+        }
+    }
+
+    function logOut() {
+        $.ajax({
+            type: "POST",
+            url: "api/login/logout/" + session,
+            contentType: "application/json/",
+            success: function (res) {
+              setCookie('session_id', '');
+                loginScreen();
+            },
+            error: function (xhr, status, error) {
+            }
+        });
+    }
+</script>
+
+<div id="cover"></div>
+
+<nav class="nav-extended">
+    <div class="nav-wrapper">
+        <ul class="left">
+            <li><a class="ddown">
+            <i class="material-icons">person</i>
+            <div class="ddown-content leftside">
+                <div class="ddownsub ddown-item">
+                    English
+                    <img src="img/gb.svg" style="height:15px; float:right;" alt="language-english">
+                    <div class="ddown-subcontent leftside">
+                        <div class="ddown-item">
+                            Svenska
+                            <img src="img/se.svg" style="height:15px; float:right;" alt="language-english">
+                        </div>
+                    </div>
+                </div>
+                <div class="ddown-item">
+                    Change Password
+                </div>
+                <div class="ddown-item">
+                    Change Email Address
+                </div>
+                <div class="ddown-item">
+                    Feedback
+                </div>
+                <div class="ddown-item">
+                    About
+                </div>
+            </div>
+</a></li>
+        </ul>
+        <ul class="left nav-text">
+            <li class="nav-logo">Bytepad</li>
+        </ul>
+
+        <ul class="right">
+            <li class=" hide-narrow" style="margin-right: 10px;"><input class="input-search" onkeyup="search(e('search').value)" id="search"></li>
+            <li class=" hide-narrow"><a><i class="material-icons">search</i></a></li>
+            <li><a onclick="createNew()"><i class="material-icons">note_add</i></a></li>
+            <li><a onclick="logOut()"><i class="material-icons">logout</i></a></li>
+        </ul>
+    </div>
+    <div id="tab-navigator" class="nav-content" style="display:none; font-weight: 600; background-color: #f7f7f7; border-bottom: 1px solid #e3e3e3;">
+        <ul class="tabs tabs-transparent">
+            <li class="tab"><a class="active" href="#test1">Home</a></li>
+            <li class="tab"><a href="#test2">Calendar</a></li>
+            <li class="tab">
+                <a href="#test3">
+                    Inbox
+                    <span class="small-tag inbox-detail">2 items</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+<div style="margin-top: 120px;"></div>
+
+<div id="content-container">
+    <div id="homepage-container" class="col s12">
+        <div>
+            <div class="mobile-border">
+                <div class="cat-grid" id="collections-grid">
+
+                </div>
+            </div>
+
+            <div class="section-header" id="recent-items-header">
+                <i onclick="closeCollection()" id="collection-close" class="material-icons collection-close-icon" style="display:none;">close</i>
+                <span id="items-header">Recent Items</span>
+            </div>
+            <div class="tag-chips" id="tags-header" style="display: none;">
+            </div>
+            <div class="items-list">
+                <div id="recent-items" class="items">
+                </div>
+            </div>
+
+            <div style="margin-top:20px;" class="section-header" id="upcoming-items-header">
+                This Week
+            </div>
+            <div id="upcoming-items" class="items-list this-week">
+                <div class="day-card">
+                    <div class="day-card-title">
+                        Monday 18th
+                    </div>
+                    <div class="day-card-content">
+                    </div>
+                </div>
+                <div class="day-card">
+                    <div class="day-card-title">
+                        Tuesday 18th
+                    </div>
+                    <div class="day-card-content">
+                    </div>
+                </div>
+                <div class="day-card">
+                    <div class="day-card-title">
+                        Wednesday 18th
+                    </div>
+                    <div class="day-card-content">
+                        <div class="day-card-slip">Take the car to the garage</div>
+                        <div class="day-card-slip">Pay the electricity bill and phone bills</div>
+                    </div>
+                </div>
+                <div class="day-card">
+                    <div class="day-card-title">
+                        Thursday 18th
+                    </div>
+                    <div class="day-card-content">
+                        <div class="day-card-slip">Take out the bins</div>
+                        <div class="day-card-slip">Pay the electricity bill and phone bills</div>
+                    </div>
+                </div>
+                <div class="day-card">
+                    <div class="day-card-title">
+                        Friday 18th
+                    </div>
+                    <div class="day-card-content">
+                        <div class="day-card-slip">Cook fancy dinner</div>
+                        <div class="day-card-slip">Order mum's birthday present</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 60px;">
+
+            </div>
+
+        </div>
+    </div>
+
+    <div style="display:none;" id="calendar-container" class="col s12" style="margin-top:60px;">
+        <div class="cal-wrapper">
+
+            <div class="one">
+                <table class="calendar">
+                    <thead>
+                        <tr>
+                        <td colspan="2" class="label-day">
+                            <i class="material-icons lr-icon" onclick="calendarMove(-1)">chevron_left</i>
+                        </td>
+                        <td colspan="3" class="label-day" id="calendar-month-disp">
+                            October 2021
+                        </td>
+                        <td colspan="2" class="label-day">
+                            <i class="material-icons lr-icon" onclick="calendarMove(1)">chevron_right</i>
+                        </td>
+                        </tr>
+                    </thead>
+                    <tbody id="calendar-table">
+
+                    </tbody>
+                </table>
+
+            </div>
+
+            <div class="calendar-items two">
+                <div class="section-header header-calendar" id="calendar-current-date">
+                    Monday 10th October 2021
+                    <i class="material-icons quickadd-icon">bookmark_add</i>
+                </div>
+                <hr />
+                <table id="calendar-items" class="calendar-items-table">
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div style="display:none;" id="inbox-container" class="col s12">
+            <table class="inbox">
+                <colgroup>
+                    <col style="width:70px" />
+                    <col style="" />
+                    <col style="width:80px" />
+                    <col style="width:120px" />
+                </colgroup>
+                <tbody id="inbox-table">
+
+                </tbody>
+            </table>
+        </div>
+</div>
+
+<div id="warningDialog" class="modal2 modal-warning-dialog">
+    <div class="modal3-content" id="modalcontent">
+        <div id="modal-warning-text" class="modal-warning" style="text-align:center;">
+            
+        </div>
+    </div>
+
+</div>
+
+<div id="modalConfirm" class="modal2">
+    <div class="modal3-content" id="modalcontent">
+        <div class="title-modal" style="text-align:center; color: #464646;">
+            <span id="modal-confirm-text"></span>
+            <hr />
+            <a class="toolbar-btn" style="cursor:pointer; margin:auto; width: max-content; color:#2ea785;" onclick="" id="confirm-ok">
+                Ok
+                <i class="material-icons">check</i>
+            </a>
+            <a class="toolbar-btn" style="cursor:pointer; margin:auto; width: max-content; color: #c73d3d;" onclick="modalClose();">
+                Cancel
+                <i class="material-icons">close</i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<div id="renameCat" class="modal2">
+    <div class="modal3-content" id="modalcontent">
+        <div class="title-modal" style="text-align:center;">
+            <input autocomplete="off" id="ren_coll" class="editor-title" type="text" data-length="10" value="" placeholder="Collection name">
+            <a class="toolbar-btn" style="cursor:pointer; margin:auto; width: max-content;" onclick="renameCollection(); modalClose();" id="ren-coll-ok">
+                Rename Collection
+                <i class="material-icons">drive_file_rename_outline</i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<div id="newCat" class="modal2">
+    <div class="modal3-content" id="modalcontent">
+        <div class="title-modal" style="text-align:center;">
+            <input autocomplete="off" id="new_coll" class="editor-title" type="text" data-length="10" value="" placeholder="Collection name">
+            <a class="toolbar-btn" style="cursor:pointer; margin:auto; width: max-content;" onclick="createCollection(e('new_coll').value)">
+                Create Collection
+                <i class="material-icons">add</i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<div id="myModal" class="modal2">
+    <!-- Modal content -->
+    <div class="modal2-content" id="modalcontent">
+        <span class="close" onclick="modalClose()"><i class="material-icons modal-icon">close</i></span>
+        <span class="close" onclick=""><i id="edit-item-modal" onclick="" style="color: #5692a9;" class="material-icons modal-icon">edit</i></span>
+        <div id="modal-title" class="title-modal">
+
+        </div>
+        <div id="modal-date" class="title-modal" style="display: none; color:#5692a9;">
+            
+        </div>
+        <hr />
+        <div id="modal-content" class="content-modal">
+
+        </div>
+        <hr />
+        <div id="modal-content" class="content-modal">
+            <span style="float: left;">
+                <div id="quickview-cat" class="cat-box">
+                    Finance
+                </div>
+            </span>
+            <span style="float: right;">
+                <div id="quickview-date" class="cat-box" style="background: transparent; color: #3d3d3d !important; cursor: auto;">
+                    Created on 5th October 2021
+                </div>
+            </span>
+        </div>
+    </div>
+
+</div>
+
+<div class="editor-box" style="display: none; position:relative;" id="item-editor">
+    <div id="lock-cover" style="display:none; position: absolute;top:0;left:0;width: 100%;height:100%;z-index:2;opacity:0.3; background-color: #ffffff;"></div>
+    <div class="section-header" style="padding: 0px;">
+        <table>
+            <tr style="margin-left:20px; border-bottom:none;">
+                <td class="tooltipp" colspan="3" style="padding: 10px 10px 0px 13px;">
+                    <input autocomplete="off" id="editor-title" class="editor-title" type="text" data-length="10" value="" placeholder="Untitled Item">
+                        <span id="ttp-title" class="tooltipptext">Please enter a title</span>
+                </td>
+            </tr>
+            <tr style="border-bottom: none;">
+                <td class="editor-row" style="width: 120px;">
+                    <div class="input-field col s12 flat-bottom">
+                        <select id="type-select" class="editor-selector">
+                            <option value="0">Note</option>
+                            <option value="1">Task</option>
+                            <option value="2">Event</option>
+                        </select>
+                        <label>Item Type</label>
+                    </div>
+                </td>
+                <td class="editor-row" style="width: 200px;">
+                    <div class="input-field col s12 flat-bottom">
+                        <select id="category-select" class="editor-selector">
+                        </select>
+                        <label>Collection</label>
+                    </div>
+                </td>
+                <td id="editor-hdg">
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="editor">
+        <table>
+            <tr style="display:none; border: none;" id="event-options">
+                <td style="padding-left: 20px;">
+                    <div class="option-slider">
+                        <div class="selected">Off</div>
+                        <div>On</div>
+                    </div>
+                </td>
+                <td>
+                    <div class="input-field col s12">
+                        <select id="reminder-type">
+                            <option value="0">On event</option>
+                            <option value="1">1 hour before</option>
+                            <option value="2">2 hours before</option>
+                            <option value="3">5 hours before</option>
+                            <option value="4">1 day before</option>
+                            <option value="5">2 days before</option>
+                            <option value="6">5 days before</option>
+                        </select>
+                        <label>Reminder:</label>
+                    </div>
+
+                </td>
+                <td style="width: 30%;">
+                </td>
+                <td>
+                    <input class="datetime-picker" type="datetime-local" id="event-datetime" name="birthdaytime">
+                </td>
+                <td>
+                    <div class="input-field col s12">
+                        <select id="reccuring-select">
+                            <option value="0">None</option>
+                            <option value="1">Daily</option>
+                            <option value="2">Every other day</option>
+                            <option value="3">Weekly</option>
+                            <option value="4">2 Weekly</option>
+                            <option value="5">4 Weekly</option>
+                            <option value="6">Every 30 days</option>
+                            <option value="7">Monthly (same date)</option>
+                        </select>
+                        <label>Reccuring</label>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <div style="display:none; " class="tag-chips" id="editor-tags">
+            <div class="chip editor-tag-prompt">
+                <i class="clearable material-icons">bookmark</i>
+                Item Tags
+            </div>
+            <div class="chip editor-tag-add" id="editor-tag-add">
+                <input id="editor-tag-new" class="editor-tag-input" />
+                <i style="font-size:15px;" class="clearable material-icons" onclick="addEditorTags(document.getElementById('editor-tag-new').value)">add</i>
+            </div>
+        </div>
+
+        <div style="display:none;" class="tag-chips" id="editor-shares">
+            <div class="chip editor-tag-prompt">
+                <i class="clearable material-icons">perm_identity</i>
+                Shared with
+            </div>
+            <div class="chip editor-tag-add" id="editor-shares-add">
+                <input id="editor-shares-new" class="editor-tag-input" />
+                <i style="font-size:15px;" class="clearable material-icons" onclick="addEditorShares(document.getElementById('editor-shares-new').value)">add</i>
+            </div>
+        </div>
+
+        <div class="editor-toolbar">
+            <table class="table-toolbar">
+                <tr>
+                    <td width="10%">
+                        <div onclick="toggleShares()" class="tooltipp toolbar-btn">
+                            <i class="clearable material-icons">expand_more</i>
+                            Share
+                            <span id="ttp-sharing-editor" class="tooltipptext">Only the owner can change these settings</span>
+                        </div>
+                    </td>
+                    <td width="10%">
+                        <div onclick="toggleTags()" class="toolbar-btn">
+                            <i class="clearable material-icons">expand_more</i>
+                            Tags
+                        </div>
+                    </td>
+                    <td width="60%">
+                    </td>
+                    <td width="10%">
+                        <div onclick="editorSubmit()" class="toolbar-btn">
+                            <i class="clearable material-icons">clear</i>
+                            Close
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div id="editor-lock" style="text-align:center; margin-bottom: 10px; display:none;">
+            <span class="toolbar-btn locked-edit">This item is locked for editing by another user</span>
+        </div>
+        <div class="row">
+            <form class="col s12">
+                <div style="height: 350px; margin-bottom: 60px;">
+
+                    <div id="editor-container">
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <table style="display:none;" id="editor-table">
+            <tr>
+                <td id="editor-username" class="editor-value" style="font-weight: bold;">
+                    Jon
+                </td>
+                <td id="editor-created" class="editor-value" style="text-align: right;">
+                    Created 13 Oct 21
+                </td>
+                <td id="editor-modified" class="editor-value" style="text-align: right; width:180px">
+                    Modified 10 Feb 21
+                </td>
+            </tr>
+        </table>
+    </div>
+
+</div>
+
+<div class="footer-main">
+    <a>
+        Report an issue
+    </a>
+
+    <span id="logged-in-as" style="color: #aaaaaa;">
+        Logged in as none
+    </span>
+
+    <a>
+        Help and Info
+    </a>
+</div>

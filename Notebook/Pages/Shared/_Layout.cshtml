@@ -1,0 +1,93 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Notebook</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Outfit">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css?family=Raleway">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link type="text/css" rel="stylesheet" href="css/materialize.css" media="screen,projection" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+    </header>
+
+    <nav style="max-width: none;">
+        <div class="nav-wrapper">
+        </div>
+    </nav>
+    <div id="nav-btm" class="nav-bottom" style="display:none;">
+        <div style="max-width: 1280px; margin:auto;">
+            <a id="home-btn" class="toolbar-btn active" onclick="viewPage(1)">
+                <i class="material-icons">home</i>
+            </a>
+            <a id="inbox-btn" class="toolbar-btn" onclick="viewPage(3)">
+                <i class="material-icons">inbox</i>
+                <div class="inbox-counter" id="inbox-counter">99+</div>
+            </a>
+            <a id="calendar-btn" class="toolbar-btn" onclick="viewPage(2)">
+                <i class="material-icons">today</i>
+            </a>
+            <a id="collection-tbar-menu" style="display:none;" class="toolbar-btn ddown">
+                <div class="vis-dtp">Collection</div>
+                <i class="vis-mob material-icons">folder</i>
+                <i class="material-icons">expand_more</i>
+                <div class="ddown-content rightside">
+                    <div class="ddown-item">
+                        Make Default
+                    </div>
+                    <div onclick="toolbar_deleteCollection()"  class="ddown-item">
+                        Delete
+                    </div>
+                    <div onclick="toolbar_renameCollection()" class="ddown-item">
+                        Rename
+                    </div>
+                    <div class="ddown-item">
+                        Sharing
+                    </div>
+                </div>
+            </a>
+            <a class="ddown toolbar-btn">
+                <div class="vis-dtp">Create</div>
+                <i class="vis-mob material-icons">ios_share</i>
+                <i class="material-icons">expand_more</i>
+                <div class="ddown-content rightside">
+                    <div onclick="createNew()" class="ddown-item">
+                        Item
+                    </div>
+                    <div onclick="addCat()" class="ddown-item">
+                        Collection
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="container" style="padding: 0px; width:100%">
+        <main role="main" class="pb-3">
+            <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.3.1/highlight.min.js"></script>
+
+            <script src="js/site.js"></script>
+            <script src="~/lib/jquery/dist/jquery.min.js"></script>
+            <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+            <script type="text/javascript" src="js/materialize.min.js"></script>
+            <link href="css/quill.snow.css" rel="stylesheet">
+            <script src="https://cdn.quilljs.com/1.3.7/quill.js"></script>
+
+            @RenderBody()
+        </main>
+    </div>
+
+    @RenderSection("Scripts", required: false)
+
+
+</body>
+</html>
